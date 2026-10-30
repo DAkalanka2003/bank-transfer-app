@@ -1,54 +1,56 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Account History</title>
-  <link rel="stylesheet" th:href="@{/css/style.css}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Account History</title>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+    <div class="container">
+        <header class="topbar">
+            <h1>Account History</h1>
+            <p><a th:href="@{/}" class="back-link">&larr; Back to Dashboard</a></p>
+        </header>
 
-<header class="topbar">
-  <h1>Bank Transfer System</h1>
-  <p>Account history</p>
-</header>
+        <div class="card full-width">
+            <h2 th:text="${'Account: ' + customer.accountNumber + ' - ' + customer.fullName}">Account Details</h2>
+            <p><strong>Email:</strong> <span th:text="${customer.email}"></span></p>
+            <p><strong>Current Balance:</strong> LKR <span th:text="${#numbers.formatDecimal(customer.balance, 1, 'COMMA', 2, 'POINT')}"></span></p>
+        </div>
 
-<main class="container">
-  <section class="card">
-    <h2 th:text="${customer.fullName + ' (' + customer.accountNumber + ')'}">Customer</h2>
-    <p>Current balance:
-      <strong>LKR <span th:text="${#numbers.formatDecimal(customer.balance, 1, 'COMMA', 2, 'POINT')}"></span></strong>
-    </p>
-    <p>Total sent (successful transfers, including fees):
-      <strong>LKR <span th:text="${#numbers.formatDecimal(totalSent, 1, 'COMMA', 2, 'POINT')}"></span></strong>
-    </p>
-  </section>
-
-  <section class="card">
-    <h2>Transactions <span class="badge" th:text="${#lists.size(transactions)}">0</span></h2>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>ID</th><th>Date &amp; Time</th><th>From</th><th>To</th><th class="num">Amount (LKR)</th><th>Status</th><th>Description</th></tr>
-        </thead>
-        <tbody>
-          <tr th:if="${#lists.isEmpty(transactions)}"><td colspan="7" class="empty">No transactions for this account.</td></tr>
-          <tr th:each="t : ${transactions}">
-            <td th:text="${t.id}"></td>
-            <td th:text="${#temporals.format(t.createdAt, 'yyyy-MM-dd HH:mm:ss')}"></td>
-            <td th:text="${t.fromAccount}"></td>
-            <td th:text="${t.toAccount}"></td>
-            <td class="num" th:text="${#numbers.formatDecimal(t.amount, 1, 'COMMA', 2, 'POINT')}"></td>
-            <td><span class="tag" th:classappend="${t.status.name() == 'SUCCESS'} ? 'ok' : 'fail'" th:text="${t.status}"></span></td>
-            <td th:text="${t.description}"></td>
-          </tr>
-        </tbody>
-      </table>
+        <div class="card full-width">
+            <h2>Transaction History</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Description</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="tx : ${history}">
+                        <td th:text="${tx.id}"></td>
+                        <td th:text="${tx.fromAccount}"></td>
+                        <td th:text="${tx.toAccount}"></td>
+                        <td th:text="${#numbers.formatDecimal(tx.amount, 1, 'COMMA', 2, 'POINT')}"></td>
+                        <td>
+                            <span th:class="${tx.status != null and tx.status.name() == 'SUCCESS' ? 'badge success' : 'badge failed'}" th:text="${tx.status}"></span>
+                        </td>
+                        <td th:text="${tx.description}"></td>
+                        <td th:text="${tx.createdAt != null ? #temporals.format(tx.createdAt, 'yyyy-MM-dd HH:mm:ss') : ''}"></td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(history)}">
+                        <td colspan="7" style="text-align:center; color: #94a3b8;">No transaction history for this account.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
-    <p style="margin-top:16px"><a th:href="@{/}" class="btn">&larr; Back to dashboard</a></p>
-  </section>
-</main>
-
-<footer class="footer">COSC 32133 / BECS 32263 &middot; Lab Sheet 06</footer>
 </body>
 </html>
