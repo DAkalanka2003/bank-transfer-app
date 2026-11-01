@@ -12,6 +12,8 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.math.BigDecimal;
+
 @Controller
 @RequiredArgsConstructor
 public class BankController {
@@ -20,16 +22,18 @@ public class BankController {
     private final TransactionAuditService auditService;
 
     private void loadDashboard(Model model, String keyword) {
-        model.addAttribute("customers", bankService.searchCustomers(keyword));
-        model.addAttribute("transactions", bankService.getLatestTransactions());
+        model.addAttribute("totalCustomers", bankService.countCustomersNative());
         model.addAttribute("totalBalance", bankService.getTotalBalance());
-        model.addAttribute("successCount", bankService.getSuccessCount());
-        model.addAttribute("failedCount", bankService.getFailedCount());
+        model.addAttribute("successCount", bankService.countSuccessTransactions());
+        model.addAttribute("failedCount", bankService.countFailedTransactions());
+        model.addAttribute("allCustomers", bankService.getAllCustomers());
+        model.addAttribute("customers", bankService.searchCustomers(keyword));
+        model.addAttribute("transactions", bankService.getAllTransactions());
         if (!model.containsAttribute("transferRequest")) {
             model.addAttribute("transferRequest", new TransferRequest());
         }
-        if (!model.containsAttribute("newCustomer")) {
-            model.addAttribute("newCustomer", new Customer());
+        if (!model.containsAttribute("customer")) {
+            model.addAttribute("customer", new Customer());
         }
         model.addAttribute("keyword", keyword);
     }
@@ -41,19 +45,19 @@ public class BankController {
     }
 
     @PostMapping("/customers")
-    public String addCustomer(@Valid @ModelAttribute("newCustomer") Customer customer,
-                              BindingResult bindingResult,
+    public String addCustomer(@Valid @ModelAttribute("customer") Customer customer,
+                              BindingResult result,
                               Model model,
                               RedirectAttributes redirectAttributes) {
-        if (bindingResult.hasErrors()) {
+        if (result.hasErrors()) {
             loadDashboard(model, null);
             return "bank";
         }
         try {
             bankService.createCustomer(customer);
-            redirectAttributes.addFlashAttribute("successMessage", "Customer added successfully.");
+            redirectAttributes.addFlashAttribute("success", "Customer added successfully.");
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
         }
         return "redirect:/";
     }
@@ -67,24 +71,24 @@ public class BankController {
                     .map(err -> err.getField() + ": " + err.getDefaultMessage())
                     .reduce((a, b) -> a + "; " + b)
                     .orElse("Invalid customer details provided.");
-            redirectAttributes.addFlashAttribute("errorMessage", errorMsg);
+            redirectAttributes.addFlashAttribute("error", errorMsg);
             return "redirect:/";
         }
         try {
             bankService.createCustomer(customer);
-            redirectAttributes.addFlashAttribute("successMessage", "Customer added successfully.");
+            redirectAttributes.addFlashAttribute("success", "Customer added successfully.");
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
         }
         return "redirect:/";
     }
 
     @PostMapping("/transfer")
     public String transferMoney(@Valid @ModelAttribute("transferRequest") TransferRequest request,
-                                BindingResult bindingResult,
+                                BindingResult result,
                                 Model model,
                                 RedirectAttributes redirectAttributes) {
-        if (bindingResult.hasErrors()) {
+        if (result.hasErrors()) {
             loadDashboard(model, null);
             return "bank";
         }
@@ -95,7 +99,7 @@ public class BankController {
                     request.getAmount(),
                     request.isSimulateFailure()
             );
-            redirectAttributes.addFlashAttribute("successMessage", "Transfer completed successfully.");
+            redirectAttributes.addFlashAttribute("success", "Transfer completed successfully.");
         } catch (Exception e) {
             auditService.recordFailure(
                     request.getFromAccount(),
@@ -103,7 +107,7 @@ public class BankController {
                     request.getAmount(),
                     e.getMessage()
             );
-            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
         }
         return "redirect:/";
     }
@@ -117,7 +121,7 @@ public class BankController {
                     .map(err -> err.getField() + ": " + err.getDefaultMessage())
                     .reduce((a, b) -> a + "; " + b)
                     .orElse("Validation error in transfer request.");
-            redirectAttributes.addFlashAttribute("errorMessage", errorMsg);
+            redirectAttributes.addFlashAttribute("error", errorMsg);
             return "redirect:/";
         }
         try {
@@ -127,7 +131,7 @@ public class BankController {
                     request.getAmount(),
                     request.isSimulateFailure()
             );
-            redirectAttributes.addFlashAttribute("successMessage", "Transfer completed successfully.");
+            redirectAttributes.addFlashAttribute("success", "Transfer completed successfully.");
         } catch (Exception e) {
             auditService.recordFailure(
                     request.getFromAccount(),
@@ -135,15 +139,61 @@ public class BankController {
                     request.getAmount(),
                     e.getMessage()
             );
-            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
         }
         return "redirect:/";
+    }
+
+    @GetMapping("/deposit")
+    public String depositPage(Model model) {
+        model.addAttribute("customers", bankService.getAllCustomers());
+        return "deposit";
+    }
+
+    @PostMapping("/deposit")
+    public String depositMoney(@RequestParam String accountNumber,
+                               @RequestParam BigDecimal amount,
+                               RedirectAttributes redirectAttributes) {
+        try {
+            bankService.deposit(accountNumber, amount);
+            redirectAttributes.addFlashAttribute("success", "Deposit successful!");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/deposit";
+    }
+
+    @GetMapping("/withdraw")
+    public String withdrawPage(Model model) {
+        model.addAttribute("customers", bankService.getAllCustomers());
+        return "withdraw";
+    }
+
+    @PostMapping("/withdraw")
+    public String withdrawMoney(@RequestParam String accountNumber,
+                                @RequestParam BigDecimal amount,
+                                RedirectAttributes redirectAttributes) {
+        try {
+            bankService.withdraw(accountNumber, amount);
+            redirectAttributes.addFlashAttribute("success", "Withdrawal successful!");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/withdraw";
+    }
+
+    @GetMapping("/large-transfers")
+    public String largeTransfers(@RequestParam(defaultValue = "10000") BigDecimal min, Model model) {
+        model.addAttribute("min", min);
+        model.addAttribute("transfers", bankService.getLargeTransfers(min));
+        return "large-transfers";
     }
 
     @GetMapping("/accounts/{accountNumber}/history")
     public String accountHistory(@PathVariable String accountNumber, Model model) {
         model.addAttribute("customer", bankService.getCustomer(accountNumber));
-        model.addAttribute("history", bankService.getAccountHistory(accountNumber));
+        model.addAttribute("transactions", bankService.getAccountHistory(accountNumber));
+        model.addAttribute("totalSent", bankService.getTotalSent(accountNumber));
         return "history";
     }
 }
