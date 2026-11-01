@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Repository
@@ -23,4 +24,10 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
 
     @Query("SELECT COUNT(t) FROM BankTransaction t WHERE t.status = :status")
     long countByStatus(@Param("status") TransactionStatus status);
+
+    @Query("SELECT t FROM BankTransaction t WHERE t.amount >= :minAmount ORDER BY t.createdAt DESC")
+    List<BankTransaction> findTransfersAbove(@Param("minAmount") BigDecimal minAmount);
+
+    @Query("SELECT SUM(t.amount) FROM BankTransaction t WHERE t.fromAccount = :accountNumber AND t.status = com.example.bankapp.model.TransactionStatus.SUCCESS")
+    BigDecimal getTotalSentByAccount(@Param("accountNumber") String accountNumber);
 }
